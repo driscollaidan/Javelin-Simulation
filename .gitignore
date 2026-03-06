@@ -1,0 +1,13 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# VSCode settings
+.vscode/
+
+# SPICE kernels (large files)
+kernels/
+
+# Python environments
+venv/
+.env/
