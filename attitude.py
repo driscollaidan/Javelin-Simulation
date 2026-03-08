@@ -41,3 +41,21 @@ def quaternion_multiply(q, p):
     vector = v1 + v2 + v3
 
     return np.concatenate(([scalar], vector))
+
+def get_spacecraft_inertial(vertices_body, r, q):
+
+    """
+    Transforms spacecraft geometry from body frame to inertial frame.
+    - Uses quaternion to calculate DCM for rotation.
+    - Currently hardcoded for cube geometry, but can be adapted for more complex shapes.
+    - Returns vertices in inertial frame for visualization.
+    """
+    C = quaternion_to_dcm(q)
+
+    # rotate cube
+    vertices_inertial = (C @ vertices_body.T).T
+
+    # translate to spacecraft position
+    vertices_inertial += r
+
+    return vertices_inertial

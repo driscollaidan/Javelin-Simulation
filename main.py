@@ -1,13 +1,15 @@
 # External Libraries
 import numpy as np
 from scipy.integrate import solve_ivp
+from scipy.interpolate import CubicSpline
 
 # Internal Functions
 from dynamics import spacecraft_dynamics
-from setup import get_initial_conditions
+from setup import get_conditions
 from animate import animate_cube
-from orbitals import get_solar_system_data, load_kernels, clear_kernels
-from visualize import plot_orientation, plot_system
+from orbitals import get_body_position, load_kernels, clear_kernels
+from visualize import plot_system
+from graphing import plot_orientation
 
 """
 TODO
@@ -26,9 +28,11 @@ def main():
 
     load_kernels() # Loads kernels to find celestial body positions
 
-    # Unpack initial conditions
-    initial_conditions = get_initial_conditions()
+    # Unpack mission conditions
+    initial_conditions = get_conditions()
     I = initial_conditions["I"]
+
+    bodies = initial_conditions["bodies"]
 
     time_vec = initial_conditions["time_vec"]
     time_steps = initial_conditions["time_steps"]
@@ -46,16 +50,28 @@ def main():
     # Pre-calulate inverse, save computation time
     I_inverse = np.linalg.inv(I)
     
+    # Get body position data for solar system bodies
+    celestial_data = {}
+    ets = np.linspace(start_et, start_et + seconds_elapsed, time_steps)
+    for body in bodies:
+        body_data = []
+        for et in ets:
+            body_data.append(get_body_position(et, body)[:3])
+        celestial_data[body.lower()] = {"r": np.array(body_data)}
+
+    earth_spline = CubicSpline(time_vec, celestial_data["earth"]["r"])
+    sun_spline   = CubicSpline(time_vec, celestial_data["sun"]["r"])
+
     # Numerically integrate angular velocity
     sol = solve_ivp(
         fun=spacecraft_dynamics,
         t_span=[time_vec[0], time_vec[-1]],
         y0=y0,
         t_eval=time_vec,
-        args=(I, I_inverse, start_et),
+        args=(I, I_inverse, earth_spline, sun_spline),
         method="DOP853",
-        rtol=1e-10,
-        atol=1e-12
+        rtol=1e-9,
+        atol=1e-9
     )
 
     # Extract vectors from ODE solution
@@ -65,15 +81,23 @@ def main():
     q = sol.y[9:13]
 
     # Normalize quaternions for drift correction
-    q = q / np.linalg.norm(q, axis=0)
+    q /= np.linalg.norm(q, axis=0, keepdims=True)
+
+    """ TEMP: VISUALIZATION WITH JUST EARTH """
+    # Get body position data for solar system bodies
+    bodies = ["EARTH"]
+    celestial_data = {}
+    ets = np.linspace(start_et, start_et + seconds_elapsed, time_steps)
+    for body in bodies:
+        body_data = []
+        for et in ets:
+            body_data.append(get_body_position(et, body)[:3])
+        celestial_data[body.lower()] = {"r": np.array(body_data)} 
 
     """ Pass calculated values to visualization functions """
     plot_orientation(time_vec, w, q) # Plots quaternions and angular velocities over time.
     animate_cube(time_vec, q) # Animates cube to represent orientation over time
-
-    solar_system_data = get_solar_system_data(start_et, start_et + seconds_elapsed, time_steps) # Obtains position/velocity data for solar system with inputted time steps
-
-    plot_system(solar_system_data, r) # Plots the satellite and solar system in 3D-space wrt time using Plotly
+    plot_system(celestial_data, r, q) # Plots the satellite and solar system in 3D-space wrt time using Plotly
 
     clear_kernels() # good practice to clear
 

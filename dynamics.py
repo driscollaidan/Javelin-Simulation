@@ -3,7 +3,7 @@ import numpy as np
 from control import pd_control
 from environment import gravitational_acceleration
 
-def spacecraft_dynamics(t, y, I, I_inverse, start_et):
+def spacecraft_dynamics(t, y, I, I_inverse, earth_spline, sun_spline):
 
     """
     Decouples angular velocity and quaternions from state vector
@@ -19,9 +19,12 @@ def spacecraft_dynamics(t, y, I, I_inverse, start_et):
     q = y[9:13]
 
     """ TRANSLATIONAL DYNAMICS """
-    # Ephemeris time
-    et = start_et + t
-    a = gravitational_acceleration(r, et)
+
+    # Current positions of celestial bodies
+    r_earth = earth_spline(t)
+    r_sun   = sun_spline(t)
+
+    a = gravitational_acceleration(r, r_earth, r_sun)
     r_dot = v
     v_dot = a
 

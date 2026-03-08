@@ -11,7 +11,7 @@ TODO
 Implement conditional setting of initial conditions dependant on either preset mission modes, or user inputs.
 - Currently, all initial conditions are somewhat arbitrarily selected, but based on realistic values.
 """
-def get_initial_conditions():
+def get_conditions():
     
     """
     Initialize all data needed for simulation start.
@@ -32,8 +32,8 @@ def get_initial_conditions():
     q0 = np.array([1, 0, 0, 0])
 
     # Time Vector, seconds beyond the start_time
-    seconds_elapsed = 250
-    time_steps = 1000
+    seconds_elapsed = 2500
+    time_steps = 2500
     time_vec = np.linspace(0, seconds_elapsed, time_steps)
 
     # Initial time definition
@@ -49,9 +49,11 @@ def get_initial_conditions():
     start_et = spice.utc2et(assemble_time_string(start_time)) # convert string to ephemeris time
 
     # Approximate start position/velocity for spacecraft based on Earth
-    earth_pos = get_body_position(start_et, "earth")
-    r0 = earth_pos + np.array([7000e3, 0, 0]) # 7000 km from Earth center
-    v0 = np.array([0, 7500, 0]) # approximate LEO velocity
+    earth_state = get_body_position(start_et, "earth")
+    r0 = earth_state[:3] + np.array([7000, 0, 0]) # 7000 km from Earth center
+    v0 = earth_state[3:6] + np.array([0, 7.5, 0]) # approximate LEO velocity, km/s
+
+    bodies = ["EARTH", "SUN"] # bodies to be queried for position/velocity data, can be altered based on mission details, e.g., "JUPITER", "EUROPA", "VENUS"
 
     # Wrap in dictionary
     initial_conditions = {
@@ -63,7 +65,8 @@ def get_initial_conditions():
         "r0": r0,
         "v0": v0,
         "w0": w0,
-        "q0": q0
+        "q0": q0,
+        "bodies": bodies
     }
 
     return initial_conditions

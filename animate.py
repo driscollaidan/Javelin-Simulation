@@ -1,7 +1,7 @@
-import numpy as np
 import matplotlib.pyplot as plt
 
 from attitude import quaternion_to_dcm
+from geometry import create_cube
 
 """ 
 THIS FILE IS COMPLETELY VIBE CODED 
@@ -13,31 +13,6 @@ TODO
 Learn to implement similar logic.
 Define a mesh and include it within the orbital simulation.
 """
-
-def create_cube(size=1.0):
-
-    s = size / 2
-
-    # 8 vertices
-    vertices = np.array([
-        [-s, -s, -s],
-        [ s, -s, -s],
-        [ s,  s, -s],
-        [-s,  s, -s],
-        [-s, -s,  s],
-        [ s, -s,  s],
-        [ s,  s,  s],
-        [-s,  s,  s]
-    ])
-
-    # 12 edges (pairs of vertex indices)
-    edges = [
-        (0,1),(1,2),(2,3),(3,0),
-        (4,5),(5,6),(6,7),(7,4),
-        (0,4),(1,5),(2,6),(3,7)
-    ]
-
-    return vertices, edges
 
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation

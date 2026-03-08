@@ -1,9 +1,11 @@
 import numpy as np
-from orbitals import get_body_position
 
 # This file will establish external torques on the spacecraft
+""" 
+TODO Verify gravitational acceleration calculations
+"""
 
-def gravitational_acceleration(r, et):
+def gravitational_acceleration(r, r_earth, r_sun):
 
     """
     Computes the gravitational accceleration acting on the spacecraft.
@@ -11,21 +13,22 @@ def gravitational_acceleration(r, et):
         - Sun
         - Earth
     """
-    
-    # Current positions of celestial bodies
-    r_earth = get_body_position(et, "earth")
-    r_sun = get_body_position(et, "sun")
 
-    # Pointing vectors from spacecraft
+    # Pointing vectors between spacecraft and celestial bodies
     r_sc_earth = r - r_earth
     r_sc_sun = r - r_sun
+    r_earth_sun = r_earth - r_sun
 
-    mu_earth = 3.986004418e14
-    mu_sun   = 1.32712440018e20
+    # Gravitational parameters in km^3/s^2
+    mu_earth = 3.986004418e5
+    mu_sun   = 1.32712440018e11
 
-    a_earth = -mu_earth * r_sc_earth / np.linalg.norm(r_sc_earth)**3
-    a_sun   = -mu_sun   * r_sc_sun   / np.linalg.norm(r_sc_sun)**3
+    # Gravitational acceleration contributions from each body
+    a_sun   = -mu_sun * r_sc_sun / np.linalg.norm(r_sc_sun)**3
+    
+    a_earth = -mu_earth * (
+        r_sc_earth / np.linalg.norm(r_sc_earth)**3
+        - r_earth_sun  / np.linalg.norm(r_earth_sun )**3
+    )
 
-    a_total = a_earth + a_sun
-
-    return a_total
+    return a_earth + a_sun
