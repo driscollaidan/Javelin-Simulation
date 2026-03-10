@@ -32,7 +32,7 @@ def get_conditions():
     q0 = np.array([1, 0, 0, 0])
 
     # Time Vector, seconds beyond the start_time
-    seconds_elapsed = 2500
+    seconds_elapsed = 6000
     time_steps = 2500
     time_vec = np.linspace(0, seconds_elapsed, time_steps)
 

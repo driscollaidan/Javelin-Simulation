@@ -1,7 +1,7 @@
 import plotly.graph_objects as go
 import numpy as np
 
-from geometry import create_cube, create_sphere
+from geometry import create_spacecraft, create_sphere
 from attitude import get_spacecraft_inertial
 
 """
@@ -28,6 +28,18 @@ Proposed solutions?
     - Create brief simulations for each.
 
 """
+
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#                                                                                                                                        #
+#   Visualization coordination functions:                                                                                                #
+#   - plot_system: Displays solar system and satellite position/orientation over time in 3D space.                                       #
+#   - animate_spacecraft_attitude: Displays spacecraft orientation over time, fixed in space.                                            #
+#                                                                                                                                        #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#   plot_system()                                                                                                                        #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
 
 def plot_system(solar_system_data, spacecraft_position, spacecraft_orientation):
     
@@ -58,19 +70,62 @@ def plot_system(solar_system_data, spacecraft_position, spacecraft_orientation):
         frame_data = [] # All data for a speciific frame goes here, then added to frames list
         
         frame_data.append(get_spacecraft_frame(spacecraft_position[:,i], spacecraft_orientation[:,i]))
-        
+
         for body in bodies:
             r = solar_system_data[body]["r"][i]
             x_trail = solar_system_data[body]["r"][:i+1,0]
             y_trail = solar_system_data[body]["r"][:i+1,1]
             z_trail = solar_system_data[body]["r"][:i+1,2]
             frame_data.extend(get_celestial_frame(body, r, x_trail, y_trail, z_trail)) 
-            
+    
+
         # Makes a plotly frame from the data, adds to list
-        frames.append(go.Frame(data=frame_data, name=str(i),)) 
+        frames.append(
+            go.Frame(
+                data=frame_data,
+                name=str(i),
+            )
+        ) 
 
     fig.frames = frames # After collecting all frames, applies them to the figure
     display_plot(fig, length) # Calls function to add sliders/buttons and show figure
+
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#   animate_spacecraft_attitude()                                                                                                        #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+
+def animate_spacecraft_attitude(t, q):
+
+    length = len(t)
+    fig = go.Figure()
+
+    # Initial frame with satellite, then frames will update these traces to create animation
+    fig.add_trace(get_spacecraft_frame(np.zeros(3), q[:,0]))
+
+    # Only rotating spacecraft, position is fixed at origin for this animation, to better visualize attitude changes.
+    frames = []
+    for i in range(length):
+        frames.append(
+            go.Frame(
+                data=get_spacecraft_frame(np.zeros(3), q[:,i]),
+                name=str(i)
+            )
+        )
+
+    fig.frames = frames
+    display_plot(fig, length)
+
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#                                                                                                                                        #
+#   Frame generation functions:                                                                                                          #
+#   - get_celestial_frame: Generates a plotly frame for a celestial body, including its orbit trail.                                     #
+#   - get_spacecraft_frame: Generates plotly frame for the spacecraft, applying the current position and orientation to the geometry.    #                 
+#                                                                                                                                        #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#   get_celestial_frame()                                                                                                                #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
 
 def get_celestial_frame(body, r, x_trail, y_trail, z_trail):
 
@@ -106,34 +161,48 @@ def get_celestial_frame(body, r, x_trail, y_trail, z_trail):
 
     return [body_frame, trail_frame]
 
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#   get_spacecraft_frame()                                                                                                               #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+
 def get_spacecraft_frame(r, q):
 
     """ Placeholder geometry, will replace later """
     # Generate spacecraft geometry
-    vertices_body, edges = create_cube(size=100)
-    cube_i = [0,0,0,1,1,2,4,4,5,6,2,3] # Define triangular faces
-    cube_j = [1,2,3,2,5,3,5,6,6,7,6,7]
-    cube_k = [2,3,1,5,6,7,6,7,4,4,3,4]
+    vertices_body, faces = create_spacecraft()
 
-    cube = get_spacecraft_inertial(
+    spacecraft = get_spacecraft_inertial(
         vertices_body,
         r,
         q
     )
 
     frame = go.Mesh3d(
-        x=cube[:,0],
-        y=cube[:,1],
-        z=cube[:,2],
-        i=cube_i,
-        j=cube_j,
-        k=cube_k,
-        color="black",
-        opacity=0.9,
+        x=spacecraft[:,0],
+        y=spacecraft[:,1],
+        z=spacecraft[:,2],
+
+        i=faces[:,0],
+        j=faces[:,1],
+        k=faces[:,2],
+
+        color="silver",
+        opacity=1,
+        flatshading=True,
         showscale=False
     )
 
     return frame
+
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#                                                                                                                                        #
+#   display_plot:                                                                                                                        #
+#   - Adds sliders and buttons to the figure, then shows it.                                                                             #
+#   - TODO: Add functionality to establish initial camera position, and update it with each frame to follow the satellite.               #
+#   - TODO: Add functionality to update time-bar to show dates/years instead of frame number.                                            #
+#   - TODO: Add functionality to set viewing range, i.e., xlimit, ylimit, zlimit.                                                        #                    
+#                                                                                                                                        #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
 
 def display_plot(fig, length):
 

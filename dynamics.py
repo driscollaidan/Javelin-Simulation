@@ -12,11 +12,18 @@ def spacecraft_dynamics(t, y, I, I_inverse, earth_spline, sun_spline):
     - Returns combined derivatives
     """
 
+    # Terminal progress tracker for ODE, remove for faster computation.
+    if int(t) % 100 == 0:
+        print(f"{(100*t/6000):.2f}%")
+    
     # Extract state
     r = y[0:3]
     v = y[3:6]
     w = y[6:9]
     q = y[9:13]
+
+    # Ensures quaternion normalization
+    q = q / np.linalg.norm(q)
 
     """ TRANSLATIONAL DYNAMICS """
 

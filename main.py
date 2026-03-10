@@ -6,9 +6,8 @@ from scipy.interpolate import CubicSpline
 # Internal Functions
 from dynamics import spacecraft_dynamics
 from setup import get_conditions
-from animate import animate_cube
 from orbitals import get_body_position, load_kernels, clear_kernels
-from visualize import plot_system
+from visualize import plot_system, animate_spacecraft_attitude
 from graphing import plot_orientation
 
 """
@@ -95,8 +94,8 @@ def main():
         celestial_data[body.lower()] = {"r": np.array(body_data)} 
 
     """ Pass calculated values to visualization functions """
-    plot_orientation(time_vec, w, q) # Plots quaternions and angular velocities over time.
-    animate_cube(time_vec, q) # Animates cube to represent orientation over time
+    # plot_orientation(time_vec, w, q) # Plots quaternions and angular velocities over time.
+    animate_spacecraft_attitude(time_vec, q) # Animates cube to represent orientation over time
     plot_system(celestial_data, r, q) # Plots the satellite and solar system in 3D-space wrt time using Plotly
 
     clear_kernels() # good practice to clear
