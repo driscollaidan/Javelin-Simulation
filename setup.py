@@ -1,42 +1,51 @@
 import numpy as np
 import spiceypy as spice
 
-from helpers import assemble_time_string
+from helpers import assemble_time_string, seed, random_integer, random_float
 from orbitals import get_body_position
 
-# Current values picked on whim, can be later determined based on mission details.
-# Function purpose is to cleanly separate numerical values from main script, for ease of alteration.
-"""
-TODO
-Implement conditional setting of initial conditions dependant on either preset mission modes, or user inputs.
-- Currently, all initial conditions are somewhat arbitrarily selected, but based on realistic values.
-"""
-def get_conditions():
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#   Preset mission modes, can be expanded based on needs.                                                                              #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+
+CUSTOM_SIMULATION = 0
+ACQUISITION_SIMULATION = 1
+EARTH_ORBIT_SIMULATION = 2
+
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#   Main wrapper, coordinates initial conditions for each simulation type.                                                               #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+
+def get_conditions(simulation):
     
+    if simulation == ACQUISITION_SIMULATION:
+        return get_acquisition_conditions()
+
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#   Acquisition Mode Conditions                                                                                                          #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+
+def get_acquisition_conditions():
+
     """
-    Initialize all data needed for simulation start.
-    - [I]  : Diagonal intertia matrix
-    - [w0] : Initial angular velocities
-    - [t]  : Simulation timespan
-    - [L]  : Initial torques
-    - [q0] : Initial quaternion orientation
+    Simulation for spacecraft acquisition mode after separation from launch vehicle.
+    - Given random initial angular velocity and orientation.
+    - (TODO) Moments of inertia given by Javelin spacecraft definition.
+    - Runs for about one/sixth period of Earth orbit, 1000 seconds.
+    - (TODO) Start time/date for simulation based on mission definition, proposed date.
+    - Initial position/velocity based on Earth LEO (200km).
+        - (TODO) Specific orbit defined based on mission definition.
+    - Bodies being used for physics calculations: Earth, Sun, Moon.
+    - Bodies being used for visualization: Earth.
+
     """
+    
+    seed()
+    w0 = np.array([random_float(0, 1), random_float(0, 1), random_float(0, 1)])
+    q0 = np.array([random_float(0, 1), random_float(0, 1), random_float(0, 1), random_float(0, 1)])
 
-    # Inertia Matrix
-    I = np.diag([1, 2, 0.5])
+    I = get_inertia_matrix()
 
-    # Angular Velocity
-    w0 = np.array([0.1, 0.2, 0.15])
-
-    # Initial Quaternions
-    q0 = np.array([1, 0, 0, 0])
-
-    # Time Vector, seconds beyond the start_time
-    seconds_elapsed = 6000
-    time_steps = 2500
-    time_vec = np.linspace(0, seconds_elapsed, time_steps)
-
-    # Initial time definition
     start_time = {
         "year": 2030,
         "month": 1,
@@ -46,27 +55,38 @@ def get_conditions():
         "second": 0
     }
 
-    start_et = spice.utc2et(assemble_time_string(start_time)) # convert string to ephemeris time
+    start_et = spice.utc2et(assemble_time_string(start_time))
 
-    # Approximate start position/velocity for spacecraft based on Earth
     earth_state = get_body_position(start_et, "earth")
-    r0 = earth_state[:3] + np.array([7000, 0, 0]) # 7000 km from Earth center
-    v0 = earth_state[3:6] + np.array([0, 7.5, 0]) # approximate LEO velocity, km/s
+    r0 = earth_state[:3] + np.array([6571, 0, 0]) # km
 
-    bodies = ["EARTH", "SUN"] # bodies to be queried for position/velocity data, can be altered based on mission details, e.g., "JUPITER", "EUROPA", "VENUS"
+    v_circ = np.sqrt(398600.4418 / 6571)          # km/s
+    v0 = earth_state[3:6] + np.array([0, v_circ, 0])
 
-    # Wrap in dictionary
-    initial_conditions = {
+    conditions = {
         "I": I,
-        "time_vec" : time_vec,
-        "time_steps": time_steps,
-        "seconds_elapsed": seconds_elapsed,
+        "simulation_time": 1000,
         "start_et": start_et,
         "r0": r0,
         "v0": v0,
         "w0": w0,
         "q0": q0,
-        "bodies": bodies
+        "physics_bodies": ["EARTH", "SUN"],
+        "visualization_bodies": ["EARTH"]
     }
 
-    return initial_conditions
+    return conditions
+
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#   Returns diagonal inertia matrix.                                                                                                     #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+
+def get_inertia_matrix(Ixx = 1, Iyy = 2, Izz = 0.5):
+    
+    """
+    Placeholder function for generating inertia matrix, can be expanded based on needs.
+    - Default case based on Javelin spacecraft definition (TBD).
+    """
+
+    I = np.diag([Ixx, Iyy, Izz])
+    return I

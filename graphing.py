@@ -1,32 +1,108 @@
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
-def plot_orientation(t, w, q):
+def plot_orientation(t, w, q, start_indexes, end_indexes):
 
     """
-    Outputs hard-coded plots for the following:
-    - Angular Momentum Magnitude
+    Outputs interactive Plotly graphs for:
     - Angular Velocities
     - Quaternions
     """
 
-    # Graph angular velocities over time.
-    plt.figure()
-    plt.plot(t, w[0], label='$\omega_x$')
-    plt.plot(t, w[1], label='$\omega_y$')
-    plt.plot(t, w[2], label='$\omega_z$')
-    plt.legend()
-    plt.xlabel("Time (s)")
-    plt.ylabel("Angular Velocity (rad/s)")
+    for i in range(len(start_indexes)):
 
-    # Graph quaternions over time.
-    plt.figure()
-    plt.plot(t, q[0], label='$\epsilon_1$')
-    plt.plot(t, q[1], label='$\epsilon_2$')
-    plt.plot(t, q[2], label='$\epsilon_3$')
-    plt.plot(t, q[3], label='$\epsilon_4$')
-    plt.legend()
-    plt.xlabel("Time (s)")
-    plt.ylabel("Quaternions")
+        start = start_indexes[i]
+        end = end_indexes[i]
 
-    # Display plots
-    plt.show()
+        angular_velocity_plot(t[start:end], w[:, start:end], i)
+        quaternion_plot(t[start:end], q[:, start:end], i)
+
+def quaternion_plot(t, q, i):
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=t, y=q[0],
+                            mode='lines',
+                            name='ε1'))
+    fig.add_trace(go.Scatter(x=t, y=q[1],
+                            mode='lines',
+                            name='ε2'))
+    fig.add_trace(go.Scatter(x=t, y=q[2],
+                            mode='lines',
+                            name='ε3'))
+    fig.add_trace(go.Scatter(x=t, y=q[3],
+                            mode='lines',
+                            name='ε4'))
+    fig.update_layout(
+        title=f"Quaternion | Interval {i} | t={t[0]:.2f}–{t[-1]:.2f} s",
+        xaxis_title="Time (s)",
+        yaxis_title="Quaternion"
+    )
+
+    fig.show()
+
+def angular_velocity_plot(t, w, i):
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=t, y=w[0],
+                                mode='lines',
+                                name='ωx'))
+    
+    fig.add_trace(go.Scatter(x=t, y=w[1],
+                                mode='lines',
+                                name='ωy'))
+    
+    fig.add_trace(go.Scatter(x=t, y=w[2],
+                                mode='lines',
+                                name='ωz'))
+    
+    fig.update_layout(
+        title=f"Angular Velocity | Interval {i} | t={t[0]:.2f}–{t[-1]:.2f} s",
+        xaxis_title="Time (s)",
+        yaxis_title="Angular Velocity (rad/s)"
+    )
+
+    fig.show()
+
+def find_intervals(q, tol=1e-8, quiet_steps=10):
+
+    """
+    Determines relevant frames to display for orientation to reduce compututational cost
+    """
+
+    end_indexes = []
+    start_indexes = [0]
+
+    lame_count = 0
+    match_count = 0
+    prev_q0, prev_q1, prev_q2, prev_q3 = [0, 0, 0, 0]
+
+    for i in range(q.shape[1]):
+        q0, q1, q2, q3 = q[:, i]
+
+        if abs(q0 - prev_q0) < tol:
+            match_count += 1
+        if abs(q1 - prev_q1) < tol:
+            match_count += 1
+        if abs(q2 - prev_q2) < tol:
+            match_count += 1
+        if abs(q3 - prev_q3) < tol:
+            match_count += 1
+
+        if match_count > 2:
+            lame_count += 1
+
+        if lame_count >= quiet_steps:
+            if len(start_indexes) > len(end_indexes):
+                end_indexes.append(i)
+            if match_count < 3:
+                start_indexes.append(i)
+                lame_count = 0
+        elif lame_count > 0 and match_count < 3:
+            lame_count = 0
+                
+        prev_q0, prev_q1, prev_q2, prev_q3 = [q0, q1, q2, q3]
+        match_count = 0
+
+    if len(start_indexes) > len(end_indexes):
+        end_indexes.append(i)
+
+    return start_indexes, end_indexes

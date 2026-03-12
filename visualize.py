@@ -94,26 +94,32 @@ def plot_system(solar_system_data, spacecraft_position, spacecraft_orientation):
 #   animate_spacecraft_attitude()                                                                                                        #
 # -------------------------------------------------------------------------------------------------------------------------------------- #
 
-def animate_spacecraft_attitude(t, q):
+def animate_spacecraft_attitude(t, q, start_index, end_index):
 
-    length = len(t)
-    fig = go.Figure()
+    for i in range(len(start_index)):
 
-    # Initial frame with satellite, then frames will update these traces to create animation
-    fig.add_trace(get_spacecraft_frame(np.zeros(3), q[:,0]))
+        interval = range(start_index[i], end_index[i])
+        fig = go.Figure()
 
-    # Only rotating spacecraft, position is fixed at origin for this animation, to better visualize attitude changes.
-    frames = []
-    for i in range(length):
-        frames.append(
-            go.Frame(
-                data=get_spacecraft_frame(np.zeros(3), q[:,i]),
-                name=str(i)
+        # Initial frame with satellite, then frames will update these traces to create animation
+        fig.add_trace(get_spacecraft_frame(np.zeros(3), q[:,start_index[i]]))
+
+        # Only rotating spacecraft, position is fixed at origin for this animation, to better visualize attitude changes.
+        frames = []
+        for j in interval:
+            frames.append(
+                go.Frame(
+                    data=get_spacecraft_frame(np.zeros(3), q[:,j]),
+                    name=str(j)
+                )
             )
-        )
 
-    fig.frames = frames
-    display_plot(fig, length)
+        fig.update_layout(
+            title=f"Spacecraft Attitude | Interval {[i]} | t={t[start_index[i]]:.2f}-{t[end_index[i]-1]:.2f}s"
+        )
+        
+        fig.frames = frames
+        display_plot(fig, len(interval))
 
 # -------------------------------------------------------------------------------------------------------------------------------------- #
 #                                                                                                                                        #

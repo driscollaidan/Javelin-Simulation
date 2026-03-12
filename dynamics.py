@@ -2,6 +2,7 @@ import numpy as np
 
 from control import pd_control
 from environment import gravitational_acceleration
+from attitude import EARTH_POINTING, SUN_POINTING, compute_guidance_quaternion
 
 def spacecraft_dynamics(t, y, I, I_inverse, earth_spline, sun_spline):
 
@@ -12,24 +13,20 @@ def spacecraft_dynamics(t, y, I, I_inverse, earth_spline, sun_spline):
     - Returns combined derivatives
     """
 
-    # Terminal progress tracker for ODE, remove for faster computation.
-    if int(t) % 100 == 0:
-        print(f"{(100*t/6000):.2f}%")
-    
     # Extract state
     r = y[0:3]
     v = y[3:6]
     w = y[6:9]
     q = y[9:13]
 
-    # Ensures quaternion normalization
+    # Normalize quaternion
     q = q / np.linalg.norm(q)
 
     """ TRANSLATIONAL DYNAMICS """
 
     # Current positions of celestial bodies
     r_earth = earth_spline(t)
-    r_sun   = sun_spline(t)
+    r_sun = sun_spline(t)
 
     a = gravitational_acceleration(r, r_earth, r_sun)
     r_dot = v
@@ -37,7 +34,7 @@ def spacecraft_dynamics(t, y, I, I_inverse, earth_spline, sun_spline):
 
     """ ATTITUDE DYNAMICS """
     # Placeholder, controller logic
-    q_desired = np.array([1,0,0,0]) # Desired orientation after maneuver
+    q_desired = compute_guidance_quaternion(EARTH_POINTING, r, r_earth, r_sun) # Desired orientation after maneuver
 
     # Tunable controller logic
     Kp = 2.0 # Increase if sluggish

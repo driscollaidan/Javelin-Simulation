@@ -1,3 +1,6 @@
+import random
+import time
+
 def assemble_time_string(time):
 
     year = int(time["year"])
@@ -15,3 +18,12 @@ def assemble_time_string(time):
             components[i] = str(components[i])
 
     return "-".join(components[:3]) + "T" + ":".join(components[3:])
+
+def seed():
+    random.seed(time.time())
+
+def random_integer(minimum, maximum):
+    return random.randint(minimum, maximum)
+
+def random_float(minimum, maximum):
+    return random.uniform(minimum, maximum)

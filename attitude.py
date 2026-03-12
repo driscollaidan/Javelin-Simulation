@@ -276,7 +276,7 @@ def compute_guidance_quaternion(mode, r_sc, r_earth, r_sun):
 # -------------------------------------------------------------------------------------------------------------------------------------- #
 
 def earth_pointing(r_sc, r_earth, r_sun):
-    return get_pointing_quaternion(r_sc, r_earth, "X", r_sun)
+    return get_pointing_quaternion(r_sc, r_earth, "Z", r_sun)
 
 def sun_pointing(r_sc, r_sun, r_earth):
-    return get_pointing_quaternion(r_sc, r_sun, "Z", r_earth)
+    return get_pointing_quaternion(r_sc, r_sun, "X", r_earth)
