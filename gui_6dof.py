@@ -5,7 +5,7 @@ import json
 from scipy.interpolate import CubicSpline
 
 from dynamics import simulate_6DoF
-from visualize import build_6dof_frame, get_spacecraft_6dof_frame, get_pointing_traces
+from visualize import build_6dof_frame, get_spacecraft_6dof_frame, get_pointing_traces, get_full_system_bounds_trace
 from geometry import create_spacecraft
 from helpers import seed, random_float, process_time
 from graphing import quaternion_plot, angular_velocity_plot
@@ -15,7 +15,7 @@ def init_6dof():
     """
     Establishes all initial data needs and conditions for 6DoF GUI.
     """
-    bodies = ["sun", "earth", "venus", "europa", "jupiter"]
+    bodies = ["sun", "venus", "earth", "moon", "jupiter", "europa"]
     t_vec, solar_system_data = load_planetary_data(bodies)
 
     # Assemble splines for interpolating planetary body positions.
@@ -58,11 +58,19 @@ def init_6dof():
         {"label": "Arrival (Jupiter) | 2041-Apr-20", "value": mission_times[8]},
     ]
 
-    return bodies, splines, vertices_body, faces, I, t_sc, mission_options
+    mission_display = {
+        mission_options[0]["value"]: ["earth"], 
+        mission_options[1]["value"]: ["earth"],
+        mission_options[2]["value"]: ["venus"],
+        mission_options[4]["value"]: ["earth"],
+        mission_options[8]["value"]: ["jupiter", "europa"],
+    }
+
+    return bodies, splines, vertices_body, faces, I, t_sc, mission_options, mission_display
 
 def run_gui_6dof():
 
-    bodies, splines, vertices_body, faces, I, t_sc, mission_options = init_6dof()
+    bodies, splines, vertices_body, faces, I, t_sc, mission_options, mission_display = init_6dof()
 
     app = Dash(__name__)
 
@@ -202,25 +210,64 @@ def run_gui_6dof():
         for body in bodies:
             r_planets[body] = splines[body](t0 + t_sim[k])
 
+        # Establishing distance-based telemetry data needs.
+        selected_bodies = mission_display.get(t0)
+        if selected_bodies is not None:
+            selected_bodies = mission_display.get(t0, 0)
+
+            distances = {}
+            for body in selected_bodies:
+                distances[body] = np.linalg.norm(r_planets[body] - r_sc)
+
+        # Creating telemetry for 6DoF solar system display.
+        telemetry_6dof = []
+        telemetry_6dof.append(f"Spacecraft Position (wrt Sun): [{r_sc[0]:,.2f}, {r_sc[1]:,.2f}, {r_sc[2]:,.2f}] km       ")
+        telemetry_6dof.append(f"Spacecraft Velocity (wrt Sun): [{v[:,k][0]:.2f}, {v[:,k][1]:.2f}, {v[:,k][2]:.2f}] km/s")
+
+        if selected_bodies:
+            telemetry_6dof.append("")
+            for body in selected_bodies:
+                telemetry_6dof.append(f"Distance to {body.capitalize()}: {distances[body]:,.2f} km")
+        telemetry_6dof = "<br>".join(telemetry_6dof)
+
+        annotations_6dof = [dict(
+            text=telemetry_6dof,
+            x=0.6,
+            y=1,
+            xref="paper",
+            yref="paper",
+            xanchor="right",
+            yanchor="top",
+            align="left",
+            showarrow=False,
+            font=dict(size=12, color="white"),
+            bgcolor="rgba(0,0,0,0.6)"
+        )]
+
         traces = build_6dof_frame(r_sc, q_sc, vertices_body, faces, r_planets, bodies)
+        traces.append(get_full_system_bounds_trace())
 
         fig = go.Figure(data=traces)
 
         fig.update_layout(
+            annotations=annotations_6dof,
             autosize=True,
             uirevision="constant",
-            scene=dict(
+            scene=dict( 
                 xaxis=dict(
+                    showticklabels=False, title="",
                     backgroundcolor="rgb(20, 20, 20)",
                     gridcolor="rgb(60, 60, 60)",
                     zerolinecolor="rgb(80, 80, 80)",
                 ),
                 yaxis=dict(
+                    showticklabels=False, title="",
                     backgroundcolor="rgb(20, 20, 20)",
                     gridcolor="rgb(60, 60, 60)",
                     zerolinecolor="rgb(80, 80, 80)",
                 ),
                 zaxis=dict(
+                    showticklabels=False, title="",
                     backgroundcolor="rgb(20, 20, 20)",
                     gridcolor="rgb(60, 60, 60)",
                     zerolinecolor="rgb(80, 80, 80)",
@@ -230,6 +277,7 @@ def run_gui_6dof():
             plot_bgcolor="rgb(10, 10, 10)",
             margin=dict(l=0, r=0, b=0, t=0),
             legend=dict(
+                y=0.85,
                 bgcolor="rgba(0,0,0,0.8)",
                 font=dict(color="white")
             )
@@ -258,16 +306,19 @@ def run_gui_6dof():
             height=450,
             scene=dict(
                 xaxis=dict(
+                    showticklabels=False, title="",
                     backgroundcolor="rgb(20, 20, 20)",
                     gridcolor="rgb(60, 60, 60)",
                     zerolinecolor="rgb(80, 80, 80)",
                 ),
                 yaxis=dict(
+                    showticklabels=False, title="",
                     backgroundcolor="rgb(20, 20, 20)",
                     gridcolor="rgb(60, 60, 60)",
                     zerolinecolor="rgb(80, 80, 80)",
                 ),
                 zaxis=dict(
+                    showticklabels=False, title="",
                     backgroundcolor="rgb(20, 20, 20)",
                     gridcolor="rgb(60, 60, 60)",
                     zerolinecolor="rgb(80, 80, 80)",
@@ -277,6 +328,7 @@ def run_gui_6dof():
             plot_bgcolor="rgb(10, 10, 10)",
             margin=dict(l=0, r=0, b=0, t=0),
             legend=dict(
+                y=0.85,
                 bgcolor="rgba(0,0,0,0.8)",
                 font=dict(color="white")
             )
