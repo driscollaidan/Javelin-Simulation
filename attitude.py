@@ -2,7 +2,7 @@ import numpy as np
 
 """ ======================================================================================================================================
 
-   Intertial Frame is defined by J2000 standard, with origin at Solar System Barycenter.             
+   Intertial Frame is defined by ECLIPJ2000 standard, with origin at Sun.             
        - X-axis points towards vernal equinox (Earth-based reference).                               
        - Y-axis is orthogonal to X and Z, completing right-handed system.                            
        - Z-axis is perpendicular to elptic plane, positive towards north ecliptic pole.              

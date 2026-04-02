@@ -4,21 +4,21 @@ import numpy as np
 from geometry import create_spacecraft, create_sphere
 from attitude import get_spacecraft_inertial
 
-BODY_PROPERTIES = {
-    "sun": {"radius":696340 * .1, "color":"yellow", "marker":20},
-    "earth": {"radius":6371, "color":"blue", "marker":5},
-    "venus": {"radius":6052, "color":"orange", "marker":4},
-    "jupiter": {"radius":69911 * .25,  "color":"brown", "marker":10},
-    "europa": {"radius":1560, "color":"white", "marker":3},
-    "moon": {"radius":1737, "color":"gray", "marker":3},
-    "mercury": {"radius":2440, "color":"tan", "marker":3},
-}
-
 # Constants for altering scale of planets, space, and spacecraft for visualiation purposes
-R_EARTH = 6371.0  # km
-DISTANCE_SCALE = 2
-SPACECRAFT_SCALE = 1
-VISUAL_SCALE = 1000
+POSITION_SCALE = 4              # Global compression of positions, shrinks entire coordinate space. Large value, everything closer. Small value, more spread out.
+SPACECRAFT_SCALE = 0.5          # Increasees the size of spacecraft geometry by a factor. Also alters unit vector pointing scale.
+VISUAL_SCALE = .5               # Controls rendered size of spheres, affects only how big objects look.
+PLANET_SCALE = 1                # Increases the size of small planets by a factor.
+
+BODY_PROPERTIES = {
+    "sun": {"radius":696340, "color":"yellow", "marker":20},
+    "earth": {"radius":6371*PLANET_SCALE, "color":"blue", "marker":5},
+    "venus": {"radius":6052*PLANET_SCALE, "color":"orange", "marker":4},
+    "jupiter": {"radius":69911,  "color":"brown", "marker":10},
+    "europa": {"radius":1560*PLANET_SCALE, "color":"white", "marker":3},
+    "moon": {"radius":1737*PLANET_SCALE, "color":"gray", "marker":3},
+    "mercury": {"radius":2440*PLANET_SCALE, "color":"tan", "marker":3},
+}
 
 # -------------------------------------------------------------------------------------------------------------------------------------- #
 #   6DoF Frame Construction funtions.                                                                                                    #
@@ -32,10 +32,10 @@ def build_6dof_frame(r_sc, q_sc, vertices_body, faces, r_planets, bodies):
     - TODO: Look into excluding bodies that will make dimensions too large.
     """
 
-    r_sc_scaled = (r_sc / R_EARTH) * DISTANCE_SCALE
+    r_sc_scaled = (r_sc / POSITION_SCALE)
 
     r_planets_scaled = {
-        body: (r_planets[body] / R_EARTH) * DISTANCE_SCALE
+        body: (r_planets[body] / POSITION_SCALE)
         for body in r_planets
     }
 
@@ -64,7 +64,7 @@ def get_celestial_6dof_frame(body, r):
     """
     Renders an accurately-sized sphere to plot planetary bodies in 3D space.
     """
-    x, y, z = create_sphere(r, (BODY_PROPERTIES[body]["radius"] / R_EARTH) * VISUAL_SCALE)
+    x, y, z = create_sphere(r, (BODY_PROPERTIES[body]["radius"] / POSITION_SCALE) * VISUAL_SCALE)
 
     surface = go.Surface(
         x=x,
@@ -119,7 +119,7 @@ def get_pointing_traces(r_sc, r_planets, bodies):
     for body in bodies:
         vec = r_planets[body] - r_sc
         unit_vec = vec / np.linalg.norm(vec)
-        vec_sized = unit_vec * 1500
+        vec_sized = unit_vec * 1500 * SPACECRAFT_SCALE
 
         pointing_traces.append(go.Scatter3d(
             x=[vec_sized[0]],
