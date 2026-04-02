@@ -1,10 +1,80 @@
 import numpy as np
+from scipy.integrate import solve_ivp
+from scipy.interpolate import CubicSpline
 
 from control import pd_control
 from environment import gravitational_acceleration
 from attitude import EARTH_POINTING, SUN_POINTING, compute_guidance_quaternion
+from orbitals import get_body_position
 
-def spacecraft_dynamics(t, y, I, I_inverse, earth_spline, sun_spline):
+def simulate_6DoF(I, r0, v0, w0, q0, t0, bodies):
+    """ 
+    Simulates spacecraft orientation and position for 200 seconds.
+    Required inputs:
+    - I: diagonal inertia tensor for spacecraft.
+    - r0: initial spacecraft position.
+    - v0: initial spacecraft velocity.
+    - w0: initial spacecraft angular veleocity.
+    - q0: inital spacecraft orientation.
+    - t0: simulation start time.
+    - bodies: list of celestial bodies involved in calculations.
+
+    TODO: Instead of retrieving celestial body data from kernels, have it retrieved from Orbitals 3DoF for spline calculations.
+    TODO: Figure out how we want to determine w0 and q0, for sake of visualization.
+    """
+    dt = 200 # 6dof simulations always 200 seconds.
+    t1 = t0 + dt # End time (Ephemeris)
+    t_steps = 5 * dt
+    t_vec = np.linspace(0, dt, t_steps)
+    ets = np.linspace(t0, t1, t_steps)
+
+    # Construct state vector of position, velocity, angular velocity and quaternion orientation
+    y0 = np.concatenate((r0, v0, w0, q0))
+
+    # Pre-calulate inverse, save computation time
+    I_inverse = np.linalg.inv(I)
+
+    # Get body position data for solar system bodies
+    celestial_data = {}
+    for body in bodies:
+        body_data = []
+        for et in ets:
+            body_data.append(get_body_position(et, body)[:3])
+        celestial_data[body.lower()] = {"r": np.array(body_data)}
+
+    # Construct interpolated planetary splines for IVP calculations.
+    splines = {
+        "earth": CubicSpline(t_vec, celestial_data["earth"]["r"]),
+        "sun": CubicSpline(t_vec, celestial_data["sun"]["r"])
+    }
+
+    # Numerically integrate angular velocity
+    sol = solve_ivp(
+        fun=spacecraft_dynamics,
+        t_span=[t_vec[0], t_vec[-1]],
+        y0=y0,
+        t_eval=t_vec,
+        args=(I, I_inverse, splines),
+        method="DOP853",
+        rtol=1e-6,
+        atol=1e-9
+    )
+
+    if not sol.success:
+        print("Integration failed:", sol.message)
+
+    # Extract vectors from ODE solution
+    r = sol.y[0:3]
+    v = sol.y[3:6]
+    w = sol.y[6:9]
+    q = sol.y[9:13]
+
+    # Normalize quaternions for drift correction
+    q /= np.linalg.norm(q, axis=0, keepdims=True)
+
+    return r, v, w, q
+
+def spacecraft_dynamics(t, y, I, I_inverse, splines):
 
     """
     Decouples angular velocity and quaternions from state vector
@@ -25,8 +95,8 @@ def spacecraft_dynamics(t, y, I, I_inverse, earth_spline, sun_spline):
     """ TRANSLATIONAL DYNAMICS """
 
     # Current positions of celestial bodies
-    r_earth = earth_spline(t)
-    r_sun = sun_spline(t)
+    r_earth = splines["earth"](t)
+    r_sun = splines["sun"](t)
 
     a = gravitational_acceleration(r, r_earth, r_sun)
     r_dot = v

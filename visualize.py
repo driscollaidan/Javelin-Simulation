@@ -4,181 +4,92 @@ import numpy as np
 from geometry import create_spacecraft, create_sphere
 from attitude import get_spacecraft_inertial
 
-"""
-TODO
-Known Ideas/Issues
-- Allow panning/zooming over 3D-space
-- 1000 timesteps seems for iterating over ten year span for orbital visualizations
-- Change time-bar at the bottom to show dates/years
-- Change planet marker/sizes appropriately
-- Include satellite
-    - By default, the camera should be focused on the satellite, and zoomed appropriately
+BODY_PROPERTIES = {
+    "sun": {"radius":696340 * .1, "color":"yellow", "marker":20},
+    "earth": {"radius":6371, "color":"blue", "marker":5},
+    "venus": {"radius":6052, "color":"orange", "marker":4},
+    "jupiter": {"radius":69911 * .25,  "color":"brown", "marker":10},
+    "europa": {"radius":1560, "color":"white", "marker":3},
+    "moon": {"radius":1737, "color":"gray", "marker":3},
+    "mercury": {"radius":2440, "color":"tan", "marker":3},
+}
 
-The satellite orientation is currently being integrated over small time frames,
-such as 200 seconds, with 0.2s step sizes. The orbital visualization takes place
-over 10-years, only doing 1000 steps (still). There is a major discrepancy in what's possible to model
-in terms of satellite data and solar system data.
-
-Proposed solutions?
-- Separate simulation times for attitude dynamics, orbital emphemeris, and animation framees.
-    - Interpolate when necessary.
-- Downscale time-length of orbital simulation
-    - For spacecraft maneuver visualization, a day, or even hours, could be enough.
-    - Can divide into mission segments, such as launch, earth orbit, transfer, approach
-    - Create brief simulations for each.
-
-"""
+# Constants for altering scale of planets, space, and spacecraft for visualiation purposes
+R_EARTH = 6371.0  # km
+DISTANCE_SCALE = 2
+SPACECRAFT_SCALE = 1
+VISUAL_SCALE = 1000
 
 # -------------------------------------------------------------------------------------------------------------------------------------- #
-#                                                                                                                                        #
-#   Visualization coordination functions:                                                                                                #
-#   - plot_system: Displays solar system and satellite position/orientation over time in 3D space.                                       #
-#   - animate_spacecraft_attitude: Displays spacecraft orientation over time, fixed in space.                                            #
-#                                                                                                                                        #
+#   6DoF Frame Construction funtions.                                                                                                    #
 # -------------------------------------------------------------------------------------------------------------------------------------- #
 
-# -------------------------------------------------------------------------------------------------------------------------------------- #
-#   plot_system()                                                                                                                        #
-# -------------------------------------------------------------------------------------------------------------------------------------- #
+def build_6dof_frame(r_sc, q_sc, vertices_body, faces, r_planets, bodies):
+    """
+    Calls visualization functions to construct animation frames for 6DoF mode.
+    - Renders detailed spheres for celestial bodies.
+    - Renders three-dimensional spacecraft structure.
+    - TODO: Look into excluding bodies that will make dimensions too large.
+    """
 
-def plot_system(solar_system_data, spacecraft_position, spacecraft_orientation):
-    
-    bodies = list(solar_system_data.keys()) # earth, venus, jupiter, europa, sun
-    length = len(solar_system_data[bodies[0]]["r"]) # should be equal to time_steps
+    r_sc_scaled = (r_sc / R_EARTH) * DISTANCE_SCALE
 
-    # Create figure
-    fig = go.Figure()
-
-    """ Create inital traces for first frame """
-    # Get initial cube vertices in inertial frame for first frame of animation
-    satellite_trace = get_spacecraft_frame(spacecraft_position[:,0], spacecraft_orientation[:,0])
-
-    # Create traces for initial positions
-    celestial_traces = []
-    for body in bodies:
-        r = solar_system_data[body]["r"][0]
-        celestial_traces.extend(get_celestial_frame(body, r, [r[0]], [r[1]], [r[2]])) 
-
-    # Initial frame with satellite and celestial bodies, then frames will update these traces to create animation
-    fig.add_trace(satellite_trace)
-    for trace in celestial_traces:
-        fig.add_trace(trace)
-    
-    """ Create additional frames for animation """
-    frames = []
-    for i in range(length):
-        frame_data = [] # All data for a speciific frame goes here, then added to frames list
-        
-        frame_data.append(get_spacecraft_frame(spacecraft_position[:,i], spacecraft_orientation[:,i]))
-
-        for body in bodies:
-            r = solar_system_data[body]["r"][i]
-            x_trail = solar_system_data[body]["r"][:i+1,0]
-            y_trail = solar_system_data[body]["r"][:i+1,1]
-            z_trail = solar_system_data[body]["r"][:i+1,2]
-            frame_data.extend(get_celestial_frame(body, r, x_trail, y_trail, z_trail)) 
-    
-
-        # Makes a plotly frame from the data, adds to list
-        frames.append(
-            go.Frame(
-                data=frame_data,
-                name=str(i),
-            )
-        ) 
-
-    fig.frames = frames # After collecting all frames, applies them to the figure
-    display_plot(fig, length) # Calls function to add sliders/buttons and show figure
-
-# -------------------------------------------------------------------------------------------------------------------------------------- #
-#   animate_spacecraft_attitude()                                                                                                        #
-# -------------------------------------------------------------------------------------------------------------------------------------- #
-
-def animate_spacecraft_attitude(t, q, start_index, end_index):
-
-    for i in range(len(start_index)):
-
-        interval = range(start_index[i], end_index[i])
-        fig = go.Figure()
-
-        # Initial frame with satellite, then frames will update these traces to create animation
-        fig.add_trace(get_spacecraft_frame(np.zeros(3), q[:,start_index[i]]))
-
-        # Only rotating spacecraft, position is fixed at origin for this animation, to better visualize attitude changes.
-        frames = []
-        for j in interval:
-            frames.append(
-                go.Frame(
-                    data=get_spacecraft_frame(np.zeros(3), q[:,j]),
-                    name=str(j)
-                )
-            )
-
-        fig.update_layout(
-            title=f"Spacecraft Attitude | Interval {[i]} | t={t[start_index[i]]:.2f}-{t[end_index[i]-1]:.2f}s"
-        )
-        
-        fig.frames = frames
-        display_plot(fig, len(interval))
-
-# -------------------------------------------------------------------------------------------------------------------------------------- #
-#                                                                                                                                        #
-#   Frame generation functions:                                                                                                          #
-#   - get_celestial_frame: Generates a plotly frame for a celestial body, including its orbit trail.                                     #
-#   - get_spacecraft_frame: Generates plotly frame for the spacecraft, applying the current position and orientation to the geometry.    #                 
-#                                                                                                                                        #
-# -------------------------------------------------------------------------------------------------------------------------------------- #
-
-# -------------------------------------------------------------------------------------------------------------------------------------- #
-#   get_celestial_frame()                                                                                                                #
-# -------------------------------------------------------------------------------------------------------------------------------------- #
-
-def get_celestial_frame(body, r, x_trail, y_trail, z_trail):
-
-    body_radii = {
-        "earth": 6371,
-        "venus": 6052,
-        "sun": 696340,
-        "jupiter": 69911,
-        "europa": 1560
+    r_planets_scaled = {
+        body: (r_planets[body] / R_EARTH) * DISTANCE_SCALE
+        for body in r_planets
     }
 
-    # Orbit trail, might take out of graph, timespans too short to matter much
-    trail_frame = go.Scatter3d(
-        x=x_trail,
-        y=y_trail,
-        z=z_trail,
-        mode="lines",
-        line=dict(width=2),
-        showlegend=False
+    traces = []
+
+    traces.extend(
+        get_spacecraft_6dof_frame(
+            r_sc_scaled ,
+            q_sc,
+            vertices_body,
+            faces
+        )
     )
     
-    # Sphere for planet
-    x, y, z = create_sphere(r, body_radii[body])
+    for body in bodies:
+        traces.extend(
+            get_celestial_6dof_frame(
+                body, 
+                r_planets_scaled[body]
+            )
+        )
 
-    body_frame = go.Surface(
+    return traces
+
+def get_celestial_6dof_frame(body, r):
+    """
+    Renders an accurately-sized sphere to plot planetary bodies in 3D space.
+    """
+    x, y, z = create_sphere(r, (BODY_PROPERTIES[body]["radius"] / R_EARTH) * VISUAL_SCALE)
+
+    surface = go.Surface(
         x=x,
         y=y,
         z=z,
         showscale=False,
-        name=body,
-        opacity=1
+        surfacecolor=np.zeros_like(x),
+        colorscale=[
+            [0, BODY_PROPERTIES[body]["color"]],
+            [1, BODY_PROPERTIES[body]["color"]]
+        ],
+        name=body.capitalize(),
+        opacity=1,
+        showlegend=True,
+        legendgroup=body         
     )
 
-    return [body_frame, trail_frame]
+    return [surface]
 
-# -------------------------------------------------------------------------------------------------------------------------------------- #
-#   get_spacecraft_frame()                                                                                                               #
-# -------------------------------------------------------------------------------------------------------------------------------------- #
-
-def get_spacecraft_frame(r, q):
-
-    """ Placeholder geometry, will replace later """
-    # Generate spacecraft geometry
-    vertices_body, faces = create_spacecraft()
-
+def get_spacecraft_6dof_frame(r, q, vertices_body, faces):
+    """
+    Renders position and orientation of spacecraft 3D model for visualization.
+    """
     spacecraft = get_spacecraft_inertial(
-        vertices_body,
+        vertices_body * SPACECRAFT_SCALE,
         r,
         q
     )
@@ -195,23 +106,200 @@ def get_spacecraft_frame(r, q):
         color="silver",
         opacity=1,
         flatshading=True,
-        showscale=False
+        showscale=False,
+        name="Spacecraft",
+        showlegend=True
     )
 
-    return frame
+    return [frame]
+
+def get_pointing_traces(r_sc, r_planets, bodies):
+
+    pointing_traces = []
+    for body in bodies:
+        vec = r_planets[body] - r_sc
+        unit_vec = vec / np.linalg.norm(vec)
+        vec_sized = unit_vec * 1500
+
+        pointing_traces.append(go.Scatter3d(
+            x=[vec_sized[0]],
+            y=[vec_sized[1]],
+            z=[vec_sized[2]],
+            mode="markers",
+            marker=dict(size=10, color=BODY_PROPERTIES[body]["color"]),
+            name=f"{body.capitalize()}"
+        ))
+
+    return pointing_traces
+    
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#   3DoF Frame Construction funtions.                                                                                                    #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+
+def build_3dof_frame(r_planets, spacecraft_position, traj):
+    """
+    Calls visualization functions to construct animation frames for 3DoF mode.
+    - Makes markers for spacecraft and celestial bodies.
+    - TODO: Investigate scaling down the graph, and/or forcing 2D-adjacent (easier to visualize).
+    - TODO: Implement trails for the markers.
+    - TODO: Un-Comment spacecraft position part.
+    """
+    traces = []
+
+    for body, r in r_planets.items():
+        traces.extend(get_celestial_3dof_frame(body, r))
+
+    traces.extend(
+        get_spacecraft_3dof_frame(spacecraft_position, traj)
+    )
+
+    return traces
+
+def get_celestial_3dof_frame(body, r):
+    """
+    Constructs marker used for plotting celestial body position in 3DoF mode.
+    - TODO: Implement trails.
+    """
+    body_frame = go.Scatter3d(
+        x=[r[0]],
+        y=[r[1]],
+        z=[r[2]],
+        mode="markers",
+        marker=dict(size=BODY_PROPERTIES[body]["marker"], color=BODY_PROPERTIES[body]["color"]),
+        name=body,
+        showlegend=True
+    )
+
+    return [body_frame]
+
+def get_spacecraft_3dof_frame(r, traj):
+    """
+    Constructs marker used for plotting spacecraft position in 3DoF mode.
+    - TODO: Implement trails.
+    """
+    marker = go.Scatter3d(
+            x=[r[0]],
+            y=[r[1]],
+            z=[r[2]],
+            mode="markers",
+            marker=dict(size=2, color="red", symbol="circle"),
+            name="Spacecraft",
+            showlegend=True
+        )
+
+    trajectory = go.Scatter3d(
+        x=traj[:, 0],
+        y=traj[:, 1],
+        z=traj[:, 2],
+        mode="lines",
+        line=dict(width=2),
+        name="Spacecraft Trajectory",
+        showlegend=True
+    )
+
+    return [marker, trajectory]
+
+""" ==================================================================================================================================== # 
+#                                                                                                                                        #
+#   Legacy functions.                                                                                                                    #
+#   - plot_system                                                                                                                        #
+#   - display_plot                                                                                                                       #
+#                                                                                                                                        #       
+#   Were previously used for generating and displaying solar system plots. Keeping in file (for now) in case needed.                     #
+#   Being replaced with Plotly Dash GUI.                                                                                                 #
+#                                                                                                                                        #
+# ==================================================================================================================================== """
+
+SPACECRAFT_TRAJECTORY_MODE = 0
+SPACECRAFT_ORIENTATION_MODE = 1
 
 # -------------------------------------------------------------------------------------------------------------------------------------- #
-#                                                                                                                                        #
-#   display_plot:                                                                                                                        #
-#   - Adds sliders and buttons to the figure, then shows it.                                                                             #
-#   - TODO: Add functionality to establish initial camera position, and update it with each frame to follow the satellite.               #
-#   - TODO: Add functionality to update time-bar to show dates/years instead of frame number.                                            #
-#   - TODO: Add functionality to set viewing range, i.e., xlimit, ylimit, zlimit.                                                        #                    
-#                                                                                                                                        #
+#   Legacy coordination wrapper.                                                                                                         #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+
+def plot_system(solar_system_data, spacecraft_position, spacecraft_orientation, mode):
+    """
+    Legacy coordination function for generating three-dimensional solar system plots.
+    - Being replaced with GUI logic, built with Plotly Dash.
+    """
+    bodies = list(solar_system_data.keys()) # earth, venus, jupiter, europa, sun
+    length = len(solar_system_data[bodies[0]]["r"]) # should be equal to time_steps
+
+    # Create figure
+    fig = go.Figure()
+
+    """ Placeholder geometry, will replace later """
+    # Generate spacecraft geometry
+    vertices_body, faces = create_spacecraft()
+
+    """ Create inital traces for first frame """
+    # Get initial cube vertices in inertial frame for first frame of animation
+    satellite_traces = []
+    if mode == SPACECRAFT_ORIENTATION_MODE:
+        satellite_traces.append(get_spacecraft_6dof_frame(spacecraft_position[:,0], spacecraft_orientation[:,0],  vertices_body, faces))
+    elif mode == SPACECRAFT_TRAJECTORY_MODE:
+        satellite_traces.extend(get_spacecraft_3dof_frame(spacecraft_position[:,0], spacecraft_position[0,:1], spacecraft_position[1,:1], spacecraft_position[2,:1]))
+
+    # Create traces for initial positions
+    celestial_traces = []
+    for body in bodies:
+        r = solar_system_data[body]["r"][0]
+        if mode == SPACECRAFT_ORIENTATION_MODE:
+            celestial_traces.append(get_celestial_6dof_frame(body, r))
+        elif mode == SPACECRAFT_TRAJECTORY_MODE:
+            x_trail = solar_system_data[body]["r"][:1,0]
+            y_trail = solar_system_data[body]["r"][:1,1]
+            z_trail = solar_system_data[body]["r"][:1,2]
+            celestial_traces.extend(get_celestial_3dof_frame(body, r, x_trail, y_trail, z_trail))
+
+    # Initial frame with satellite and celestial bodies, then frames will update these traces to create animation
+    for trace in satellite_traces:
+        fig.add_trace(trace)
+    for trace in celestial_traces:
+        fig.add_trace(trace)
+    
+    """ Create additional frames for animation """
+    frames = []
+    for i in range(length):
+        frame_data = [] # All data for a speciific frame goes here, then added to frames list
+        
+        if mode == SPACECRAFT_ORIENTATION_MODE:
+            frame_data.append(get_spacecraft_6dof_frame(spacecraft_position[:,i], spacecraft_orientation[:,i], vertices_body, faces))
+        elif mode == SPACECRAFT_TRAJECTORY_MODE:
+            x_trail = spacecraft_position[0,:i+1]
+            y_trail = spacecraft_position[1,:i+1]
+            z_trail = spacecraft_position[2,:i+1]
+            frame_data.extend(get_spacecraft_3dof_frame(spacecraft_position[:,i], x_trail, y_trail, z_trail))
+
+        for body in bodies:
+            r = solar_system_data[body]["r"][i]
+            if mode == SPACECRAFT_ORIENTATION_MODE:
+                frame_data.append(get_celestial_6dof_frame(body, r)) 
+            elif mode == SPACECRAFT_TRAJECTORY_MODE:
+                x_trail = solar_system_data[body]["r"][:i+1,0]
+                y_trail = solar_system_data[body]["r"][:i+1,1]
+                z_trail = solar_system_data[body]["r"][:i+1,2]
+                frame_data.extend(get_celestial_3dof_frame(body, r, x_trail, y_trail, z_trail))
+
+        # Makes a plotly frame from the data, adds to list
+        frames.append(
+            go.Frame(
+                data=frame_data,
+                name=str(i),
+            )
+        ) 
+
+    fig.frames = frames # After collecting all frames, applies them to the figure
+    display_plot(fig, length) # Calls function to add sliders/buttons and show figure
+
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#   Legacy display settings/call.                                                                                                        #
 # -------------------------------------------------------------------------------------------------------------------------------------- #
 
 def display_plot(fig, length):
-
+    """
+    Legacy function for displaying plotly generated graphs from the coordination system plotting function.
+    """
     # Create slider steps for frame swaps, alloing for scrollable timeline
     sliders = [{
         "currentvalue": {"prefix": "Step: "},
@@ -279,3 +367,42 @@ def display_plot(fig, length):
     )
 
     fig.show()
+
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+#   animate_spacecraft_attitude()                                                                                                        #
+# -------------------------------------------------------------------------------------------------------------------------------------- #
+
+def animate_spacecraft_attitude(t, q, start_index, end_index):
+    """  
+    Animates/visualizes orientation of spacecraft without referenece to surrounding bodies.
+    - Simply generates model and spins it according to mission quaternions.
+    - Not used within main visualization structure.
+    - TODO: Include as display in GUI.
+    """
+    # Generate spacecraft geometry
+    vertices_body, faces = create_spacecraft()
+
+    for i in range(len(start_index)):
+
+        interval = range(start_index[i], end_index[i])
+        fig = go.Figure()
+
+        # Initial frame with satellite, then frames will update these traces to create animation
+        fig.add_trace(get_spacecraft_6dof_frame(np.zeros(3), q[:,start_index[i]], vertices_body, faces))
+
+        # Only rotating spacecraft, position is fixed at origin for this animation, to better visualize attitude changes.
+        frames = []
+        for j in interval:
+            frames.append(
+                go.Frame(
+                    data=get_spacecraft_6dof_frame(np.zeros(3), q[:,j], vertices_body, faces),
+                    name=str(j)
+                )
+            )
+
+        fig.update_layout(
+            title=f"Spacecraft Attitude | Interval {[i]} | t={t[start_index[i]]:.2f}-{t[end_index[i]-1]:.2f}s"
+        )
+        
+        fig.frames = frames
+        display_plot(fig, len(interval))

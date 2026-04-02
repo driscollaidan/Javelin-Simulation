@@ -93,6 +93,7 @@ def create_spacecraft():
     faces = np.array(faces)
 
     return vertices, faces
+
 def create_sphere(center, radius, resolution=25):
 
     u = np.linspace(0, 2*np.pi, resolution)

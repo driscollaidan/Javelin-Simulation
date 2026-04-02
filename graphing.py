@@ -6,6 +6,8 @@ def plot_orientation(t, w, q, start_indexes, end_indexes):
     Outputs interactive Plotly graphs for:
     - Angular Velocities
     - Quaternions
+
+    Only to be used in conjuction with long time periods, taking only useful sections.
     """
 
     for i in range(len(start_indexes)):
@@ -16,51 +18,38 @@ def plot_orientation(t, w, q, start_indexes, end_indexes):
         angular_velocity_plot(t[start:end], w[:, start:end], i)
         quaternion_plot(t[start:end], q[:, start:end], i)
 
-def quaternion_plot(t, q, i):
+def quaternion_plot(t, q, k):
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=t, y=q[0],
-                            mode='lines',
-                            name='ε1'))
-    fig.add_trace(go.Scatter(x=t, y=q[1],
-                            mode='lines',
-                            name='ε2'))
-    fig.add_trace(go.Scatter(x=t, y=q[2],
-                            mode='lines',
-                            name='ε3'))
-    fig.add_trace(go.Scatter(x=t, y=q[3],
-                            mode='lines',
-                            name='ε4'))
+    fig.add_trace(go.Scatter(x=t, y=q[0], mode='lines', name='ε1'))
+    fig.add_trace(go.Scatter(x=t, y=q[1], mode='lines', name='ε2'))
+    fig.add_trace(go.Scatter(x=t, y=q[2], mode='lines', name='ε3'))
+    fig.add_trace(go.Scatter(x=t, y=q[3], mode='lines', name='ε4'))
+    fig.add_vline(x=t[k], line_dash="dash", line_color="black")
+
     fig.update_layout(
-        title=f"Quaternion | Interval {i} | t={t[0]:.2f}–{t[-1]:.2f} s",
+        title="Quaternion",
         xaxis_title="Time (s)",
         yaxis_title="Quaternion"
     )
 
-    fig.show()
+    return fig
 
-def angular_velocity_plot(t, w, i):
+def angular_velocity_plot(t, w, k):
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=t, y=w[0],
-                                mode='lines',
-                                name='ωx'))
-    
-    fig.add_trace(go.Scatter(x=t, y=w[1],
-                                mode='lines',
-                                name='ωy'))
-    
-    fig.add_trace(go.Scatter(x=t, y=w[2],
-                                mode='lines',
-                                name='ωz'))
-    
+    fig.add_trace(go.Scatter(x=t, y=w[0], mode='lines', name='ωx'))
+    fig.add_trace(go.Scatter(x=t, y=w[1], mode='lines', name='ωy'))
+    fig.add_trace(go.Scatter(x=t, y=w[2], mode='lines', name='ωz'))
+    fig.add_vline(x=t[k], line_dash="dash", line_color="black")
+
     fig.update_layout(
-        title=f"Angular Velocity | Interval {i} | t={t[0]:.2f}–{t[-1]:.2f} s",
+        title="Angular Velocity",
         xaxis_title="Time (s)",
         yaxis_title="Angular Velocity (rad/s)"
     )
 
-    fig.show()
+    return fig
 
 def find_intervals(q, tol=1e-8, quiet_steps=10):
 

@@ -3,7 +3,21 @@ import numpy as np
 # This file will establish external torques on the spacecraft
 """ 
 TODO Verify gravitational acceleration calculations
+TODO Replace with one generalized gravity function.
 """
+
+def calculate_gravitational_acceleration(r_sc, r_body, body):
+    """
+    Computes the gravitational acceleration on the spacecraft from a reference body.
+    """
+    gravitational_params = {
+        "earth": 3.986004418e5,
+        "sun": 1.32712440018e11
+    }
+
+    mu = gravitational_params[body]
+
+    raise NotImplementedError
 
 def gravitational_acceleration(r, r_earth, r_sun):
 
