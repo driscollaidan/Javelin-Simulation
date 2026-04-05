@@ -1,48 +1,21 @@
 import numpy as np
 
-# This file will establish external torques on the spacecraft
-""" 
-TODO Verify gravitational acceleration calculations
-TODO Replace with one generalized gravity function.
-"""
+# This file will establish external torques and accleration on the spacecraft
 
-def calculate_gravitational_acceleration(r_sc, r_body, body):
+def calculate_gravity_gradient_torque(r_norm, r_hat, mu, I):
     """
-    Computes the gravitational acceleration on the spacecraft from a reference body.
+    Computes the gravitational gradient torque on the spacecraft from a reference body.
+    - Graivity gradient toruqe calculated in the body frame.
     """
-    gravitational_params = {
-        "earth": 3.986004418e5,
-        "sun": 1.32712440018e11
-    }
+    L_gg = ((3 * mu) / (r_norm ** 3)) * np.cross(r_hat, I @ r_hat)
 
-    mu = gravitational_params[body]
+    return L_gg
 
-    raise NotImplementedError
-
-def gravitational_acceleration(r, r_earth, r_sun):
-
+def calculate_gravitational_acceleration(r, r_norm, mu):
     """
-    Computes the gravitational accceleration acting on the spacecraft.
-    - Currently only takes the following bodies into account:
-        - Sun
-        - Earth
+    Computes acceleration due to gravity acting on the spacecraft from a reference body.
+    - Gravitational acceleration calculated in inertial frame.
     """
+    a = -(mu * r) / (r_norm ** 3)
 
-    # Pointing vectors between spacecraft and celestial bodies
-    r_sc_earth = r - r_earth
-    r_sc_sun = r - r_sun
-    r_earth_sun = r_earth - r_sun
-
-    # Gravitational parameters in km^3/s^2
-    mu_earth = 3.986004418e5
-    mu_sun   = 1.32712440018e11
-
-    # Gravitational acceleration contributions from each body
-    a_sun   = -mu_sun * r_sc_sun / np.linalg.norm(r_sc_sun)**3
-    
-    a_earth = -mu_earth * (
-        r_sc_earth / np.linalg.norm(r_sc_earth)**3
-        - r_earth_sun  / np.linalg.norm(r_earth_sun )**3
-    )
-
-    return a_earth + a_sun
+    return a

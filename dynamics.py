@@ -3,9 +3,9 @@ from scipy.integrate import solve_ivp
 from scipy.interpolate import CubicSpline
 
 from control import pd_control
-from environment import gravitational_acceleration
-from attitude import EARTH_POINTING, SUN_POINTING, compute_guidance_quaternion
-from orbitals import get_body_position
+from environment import calculate_gravitational_acceleration, calculate_gravity_gradient_torque
+from attitude import EARTH_POINTING, SUN_POINTING, compute_guidance_quaternion, quaternion_to_dcm
+from orbitals import get_body_position, get_body_grav_parameter
 
 def simulate_6DoF(I, r0, v0, w0, q0, t0, bodies):
     """ 
@@ -42,11 +42,10 @@ def simulate_6DoF(I, r0, v0, w0, q0, t0, bodies):
             body_data.append(get_body_position(et, body)[:3])
         celestial_data[body.lower()] = {"r": np.array(body_data)}
 
-    # Construct interpolated planetary splines for IVP calculations.
-    splines = {
-        "earth": CubicSpline(t_vec, celestial_data["earth"]["r"]),
-        "sun": CubicSpline(t_vec, celestial_data["sun"]["r"])
-    }
+    # Construct planetary splines.
+    splines = {}
+    for body in bodies:
+        splines[body] = CubicSpline(t_vec, celestial_data[body]["r"])
 
     # Numerically integrate angular velocity
     sol = solve_ivp(
@@ -81,6 +80,9 @@ def spacecraft_dynamics(t, y, I, I_inverse, splines):
     - Performs angular accelerations calculation
     - Performs quaternion derivative
     - Returns combined derivatives
+
+    r: Inertial Frame.
+    I: Body Frame.
     """
 
     # Extract state
@@ -93,26 +95,43 @@ def spacecraft_dynamics(t, y, I, I_inverse, splines):
     q = q / np.linalg.norm(q)
 
     """ TRANSLATIONAL DYNAMICS """
+    C = quaternion_to_dcm(q)
 
-    # Current positions of celestial bodies
-    r_earth = splines["earth"](t)
-    r_sun = splines["sun"](t)
+    # Initialize zeros.
+    a_total = np.zeros(3)
+    L_total = np.zeros(3)
 
-    a = gravitational_acceleration(r, r_earth, r_sun)
+    for body in splines:
+
+        # Body specific position and gravitational parameter.
+        r_body = splines[body](t)
+        mu = get_body_grav_parameter(body)
+        
+        # Vector from spacecraft to body, and permutatons of it.
+        r_dist = r - r_body
+        r_norm = np.linalg.norm(r_dist)
+        r_hat_inertial = r_dist / r_norm
+        r_hat_body = C @ r_hat_inertial # Convert unit vector from inertial to body frame
+
+        # Calculate and append acceleration and torque.
+        a_total += calculate_gravitational_acceleration(r_dist, r_norm, mu)
+        L_total += calculate_gravity_gradient_torque(r_norm, r_hat_body, mu, I)
+
+    # Store derivatives.
     r_dot = v
-    v_dot = a
+    v_dot = a_total
 
     """ ATTITUDE DYNAMICS """
     # Placeholder, controller logic
-    q_desired = compute_guidance_quaternion(EARTH_POINTING, r, r_earth, r_sun) # Desired orientation after maneuver
+    q_desired = compute_guidance_quaternion(EARTH_POINTING, r, splines["earth"](t), splines["sun"](t)) # Desired orientation after maneuver
 
     # Tunable controller logic
     Kp = 2.0 # Increase if sluggish
     Kd = 2.0 # Increase if oscillating
 
-    L_control = pd_control(w, q, q_desired, Kp, Kd) # Calculate controller torques
+    L_total += pd_control(w, q, q_desired, Kp, Kd) # Calculate controller torques
 
-    w_dot = rigid_body_dynamics(w, I, L_control, I_inverse)
+    w_dot = rigid_body_dynamics(w, I, L_total, I_inverse)
     q_dot = quaternion_derivative(w, q)
 
     """ RETURN UPDATED STATE VECTOR """

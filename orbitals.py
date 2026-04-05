@@ -100,3 +100,10 @@ def load_planetary_data(bodies):
         celestial_data[body.lower()] = {"r": np.array(body_data)}
 
     return t_vec, celestial_data
+
+def get_body_grav_parameter(body):
+    """
+    Obtains gravitational parameter 'mu' from kernel data.
+    """
+    dim, (gm,) = spice.bodvrd(body, 'GM', 1)
+    return gm
