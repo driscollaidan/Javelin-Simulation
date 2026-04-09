@@ -1,4 +1,5 @@
 import plotly.graph_objects as go
+import numpy as np
 
 def plot_orientation(t, w, q, start_indexes, end_indexes):
 
@@ -47,6 +48,30 @@ def angular_velocity_plot(t, w, k):
         title="Angular Velocity",
         xaxis_title="Time (s)",
         yaxis_title="Angular Velocity (rad/s)"
+    )
+
+    return fig
+
+def torque_plot(t, telemetry, k):
+
+    fig = go.Figure()
+
+    gg = np.linalg.norm(telemetry["gg"], axis=0)
+    mag = np.linalg.norm(telemetry["mag"], axis=0)
+    srp = np.linalg.norm(telemetry["srp"], axis=0)
+    ctrl = np.linalg.norm(telemetry["ctrl"], axis=0)
+
+    fig.add_trace(go.Scatter(x=t, y=gg, mode='lines', name='Gravity Gradient'))
+    fig.add_trace(go.Scatter(x=t, y=mag, mode='lines', name='Magnetic'))
+    fig.add_trace(go.Scatter(x=t, y=srp, mode='lines', name='SRP'))
+    fig.add_trace(go.Scatter(x=t, y=ctrl, mode='lines', name='Control'))
+
+    fig.add_vline(x=t[k], line_dash="dash", line_color="black")
+    fig.update_yaxes(type="log")
+    fig.update_layout(
+        title="Torque Magnitudes",
+        xaxis_title="Time (s)",
+        yaxis_title="Torque Magnitude (N·m)"
     )
 
     return fig

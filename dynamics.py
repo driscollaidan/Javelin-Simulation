@@ -3,9 +3,10 @@ from scipy.integrate import solve_ivp
 from scipy.interpolate import CubicSpline
 
 from control import pd_control
-from environment import calculate_gravitational_acceleration, calculate_gravity_gradient_torque
+from environment import get_environmental_effects
 from attitude import EARTH_POINTING, SUN_POINTING, compute_guidance_quaternion, quaternion_to_dcm
-from orbitals import get_body_position, get_body_grav_parameter
+from orbitals import get_body_position
+from geometry import create_spacecraft_surfaces
 
 def simulate_6DoF(I, r0, v0, w0, q0, t0, bodies):
     """ 
@@ -47,13 +48,16 @@ def simulate_6DoF(I, r0, v0, w0, q0, t0, bodies):
     for body in bodies:
         splines[body] = CubicSpline(t_vec, celestial_data[body]["r"])
 
+    # Spacecraft geometry surfaces
+    surfaces = create_spacecraft_surfaces()
+
     # Numerically integrate angular velocity
     sol = solve_ivp(
         fun=spacecraft_dynamics,
         t_span=[t_vec[0], t_vec[-1]],
         y0=y0,
         t_eval=t_vec,
-        args=(I, I_inverse, splines),
+        args=(I, I_inverse, splines, surfaces),
         method="DOP853",
         rtol=1e-6,
         atol=1e-9
@@ -61,6 +65,9 @@ def simulate_6DoF(I, r0, v0, w0, q0, t0, bodies):
 
     if not sol.success:
         print("Integration failed:", sol.message)
+
+    # Post-processing computation for torques
+    telemetry_log = compute_telemetry(sol, I, splines, surfaces, t_vec)
 
     # Extract vectors from ODE solution
     r = sol.y[0:3]
@@ -71,9 +78,9 @@ def simulate_6DoF(I, r0, v0, w0, q0, t0, bodies):
     # Normalize quaternions for drift correction
     q /= np.linalg.norm(q, axis=0, keepdims=True)
 
-    return r, v, w, q
+    return r, v, w, q, telemetry_log
 
-def spacecraft_dynamics(t, y, I, I_inverse, splines):
+def spacecraft_dynamics(t, y, I, I_inverse, splines, surfaces):
 
     """
     Decouples angular velocity and quaternions from state vector
@@ -84,6 +91,12 @@ def spacecraft_dynamics(t, y, I, I_inverse, splines):
     r: Inertial Frame.
     I: Body Frame.
     """
+
+    # TODO. Establish more data for telemetry !!!
+    #   - Return each environmental and internal torque
+    #   - Include gain and phase margins
+    #   - Display slew rates, poiniing accuracy, power usgage, and stability.
+    #   - Implement different modes as designed earlier.
 
     # Extract state
     r = y[0:3]
@@ -96,40 +109,19 @@ def spacecraft_dynamics(t, y, I, I_inverse, splines):
 
     """ TRANSLATIONAL DYNAMICS """
     C = quaternion_to_dcm(q)
-
-    # Initialize zeros.
-    a_total = np.zeros(3)
-    L_total = np.zeros(3)
-
-    for body in splines:
-
-        # Body specific position and gravitational parameter.
-        r_body = splines[body](t)
-        mu = get_body_grav_parameter(body)
-        
-        # Vector from spacecraft to body, and permutatons of it.
-        r_dist = r - r_body
-        r_norm = np.linalg.norm(r_dist)
-        r_hat_inertial = r_dist / r_norm
-        r_hat_body = C @ r_hat_inertial # Convert unit vector from inertial to body frame
-
-        # Calculate and append acceleration and torque.
-        a_total += calculate_gravitational_acceleration(r_dist, r_norm, mu)
-        L_total += calculate_gravity_gradient_torque(r_norm, r_hat_body, mu, I)
+    L_gg, L_mag, L_srp, a_gg = get_environmental_effects(C, t, r, I, splines, surfaces)
 
     # Store derivatives.
     r_dot = v
-    v_dot = a_total
+    v_dot = a_gg
 
     """ ATTITUDE DYNAMICS """
     # Placeholder, controller logic
     q_desired = compute_guidance_quaternion(EARTH_POINTING, r, splines["earth"](t), splines["sun"](t)) # Desired orientation after maneuver
 
-    # Tunable controller logic
-    Kp = 2.0 # Increase if sluggish
-    Kd = 2.0 # Increase if oscillating
+    L_control = pd_control(w, q, q_desired) # Calculate controller torques
 
-    L_total += pd_control(w, q, q_desired, Kp, Kd) # Calculate controller torques
+    L_total = L_gg + L_mag + L_srp + L_control
 
     w_dot = rigid_body_dynamics(w, I, L_total, I_inverse)
     q_dot = quaternion_derivative(w, q)
@@ -169,3 +161,46 @@ def quaternion_derivative(w, q):
     q_dot -= q * (np.dot(q, q) - 1) * 10
 
     return q_dot
+
+def compute_telemetry(sol, I, splines, surfaces, t_vec):
+    """
+    Recompute all torques from ODE.
+    - Doing so allows for accurate plotting of torque components, without burdening ODE.
+    """
+    n = len(t_vec)
+
+    gg = np.zeros((3, n))
+    mag = np.zeros((3, n))
+    srp = np.zeros((3, n))
+    ctrl = np.zeros((3, n))
+    total = np.zeros((3, n))
+
+    for i, t in enumerate(t_vec):
+
+        r = sol.y[0:3, i]
+        w = sol.y[6:9, i]
+        q = sol.y[9:13, i]
+        q = q / np.linalg.norm(q)
+
+        C = quaternion_to_dcm(q)
+        L_gg, L_mag, L_srp, _ = get_environmental_effects(C, t, r, I, splines, surfaces)
+
+        q_desired = compute_guidance_quaternion(EARTH_POINTING, r, splines["earth"](t), splines["sun"](t))
+        L_ctrl = pd_control(w, q, q_desired)
+
+        L_tot = L_gg + L_mag + L_srp + L_ctrl
+
+        gg[:, i] = L_gg
+        mag[:, i] = L_mag
+        srp[:, i] = L_srp
+        ctrl[:, i] = L_ctrl
+        total[:, i] = L_tot
+
+    return {
+        "t": t_vec,
+        "gg": gg,
+        "mag": mag,
+        "srp": srp,
+        "ctrl": ctrl,
+        "total": total
+    }

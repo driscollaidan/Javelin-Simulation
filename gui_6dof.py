@@ -8,7 +8,7 @@ from dynamics import simulate_6DoF
 from visualize import build_6dof_frame, get_spacecraft_6dof_frame, get_pointing_traces, get_full_system_bounds_trace
 from geometry import create_spacecraft
 from helpers import seed, random_float, process_time
-from graphing import quaternion_plot, angular_velocity_plot
+from graphing import quaternion_plot, angular_velocity_plot, torque_plot
 from orbitals import load_planetary_data, load_spacecraft_3dof
 
 def init_6dof():
@@ -74,25 +74,56 @@ def run_gui_6dof():
 
     app = Dash(__name__)
 
+    # TODO: Implement another dropdown menu to allow user to change mission modes between six established.
+
     app.layout = html.Div([
 
         html.Div([
 
-            # LEFT COLUMN (controls + main 3D plot)
             html.Div([
 
-            html.Label("Select Mission Phase"),
-            dcc.Dropdown(
-                id="mission-select",
-                options=mission_options,
-                value=mission_options[0]["value"],
-                placeholder="Choose event"
-            ),
+            html.Div([
+                html.Div([
+                    html.Label("Select Mission Phase"),
+                    dcc.Dropdown(
+                        id="mission-select",
+                        options=mission_options,
+                        value=mission_options[0]["value"],
+                        placeholder="Choose event"
+                    ),
+                ], style={"width": "50%"}),
+
+                html.Div([
+                    html.Label("Mission Mode"),
+                    dcc.Dropdown(
+                        id="mission-mode",
+                        options=[
+                            {"label": "Acquisition", "value": "acquisition"},
+                            {"label": "Scientific Pointing", "value": "science_pointing"},
+                            {"label": "Communication Pointing", "value": "comm_pointing"},
+                            {"label": "Safe", "value": "safe"},
+                        ],
+                        value="safe",
+                        placeholder="Select mode"
+                    ),
+                ], style={"width": "50%", "paddingLeft": "10px"}),
+
+            ], style={
+                "display": "flex",
+                "width": "100%",
+                "gap": "10px",
+                "alignItems": "center"
+            }),
 
                 dcc.Graph(
                     id="attitude-anim",
-                    style={"height": "100%", "width": "100%"},
-                    config={"responsive": True}
+                    style={"height": "47.5%", "width": "100%"},
+                    config={"responsive": False}
+                ),
+
+                dcc.Graph(
+                    id="torque-plot",
+                    style={"height": "40%", "width": "100%"}
                 ),
 
             ], style={
@@ -100,7 +131,7 @@ def run_gui_6dof():
                 "height": "80vh",
                 "display": "flex",
                 "flexDirection": "column",
-                "gap": "10px"
+                "gap": "10px",
             }),
 
             html.Div([
@@ -142,9 +173,17 @@ def run_gui_6dof():
         dcc.Slider(
             id="slider",
             min=0,
-            max=199,
+            max=1000,
             step=1,
-            value=0
+            value=0,
+            marks={
+                0: "0s",
+                250: "50s",
+                500: "100s",
+                750: "150s",
+                1000: "200s"
+            },
+            tooltip={"always_visible": False}
         ),
 
         dcc.Interval(id="anim", interval=600, disabled=True),
@@ -157,13 +196,24 @@ def run_gui_6dof():
         Output("quat-plot", "figure"),
         Output("omega-plot", "figure"),
         Output("attitude-anim", "figure"),
+        Output("torque-plot", "figure"),
         Output("cache", "data"),
         Input("index", "data"),
         Input("mission-select", "value"),
+        Input("mission-mode", "value"),
         State("cache", "data"),
     )
-    def update(k, t0, cache):
+    def update(k, t0, mode, cache):        
         
+        if mode == "acquisition":
+            pass
+        elif mode == "science_pointing":
+            pass
+        elif mode == "comm_pointing":
+            pass
+        elif mode == "safe":
+            pass
+
         if k is None:
             k = 0
         else:
@@ -185,10 +235,11 @@ def run_gui_6dof():
             w = np.array(cache["w"])
             q = np.array(cache["q"])
             t_sim = np.array(cache["t_sim"])
+            telemetry_log = cache["telemetry_log"]
 
         # Run simulation if needed.
         else:
-            r, v, w, q = simulate_6DoF(I, r0, v0, w0, q0, t0, bodies)
+            r, v, w, q, telemetry_log = simulate_6DoF(I, r0, v0, w0, q0, t0, bodies)
             t_sim = np.linspace(0, 200, r.shape[1])
 
         # Cache simulation.
@@ -198,11 +249,11 @@ def run_gui_6dof():
             "r": r.tolist(),
             "v": v.tolist(),
             "w": w.tolist(),
-            "q": q.tolist()
+            "q": q.tolist(),
+            "telemetry_log": telemetry_log
         }
 
-        k = k % len(t_sim)
-
+        k = int(np.clip(k, 0, len(t_sim) - 1))
         r_sc = r[:, k]
         q_sc = q[:, k]
     
@@ -301,29 +352,32 @@ def run_gui_6dof():
 
         anim_fig = go.Figure(data=(anim_trace + pointing_traces))
         anim_fig.update_layout(
-            autosize=True, 
-            uirevision="constant", 
+            autosize=False, 
+            uirevision="fixed", 
             height=450,
             scene=dict(
                 xaxis=dict(
+                    range=[-800, 800],
                     showticklabels=False, title="",
                     backgroundcolor="rgb(20, 20, 20)",
                     gridcolor="rgb(60, 60, 60)",
                     zerolinecolor="rgb(80, 80, 80)",
                 ),
                 yaxis=dict(
+                    range=[-800, 800],
                     showticklabels=False, title="",
                     backgroundcolor="rgb(20, 20, 20)",
                     gridcolor="rgb(60, 60, 60)",
                     zerolinecolor="rgb(80, 80, 80)",
                 ),
                 zaxis=dict(
+                    range=[-800, 800],
                     showticklabels=False, title="",
                     backgroundcolor="rgb(20, 20, 20)",
                     gridcolor="rgb(60, 60, 60)",
                     zerolinecolor="rgb(80, 80, 80)",
                 ),
-                aspectmode="data",
+                aspectmode="cube",
             ),
             plot_bgcolor="rgb(10, 10, 10)",
             margin=dict(l=0, r=0, b=0, t=0),
@@ -334,7 +388,9 @@ def run_gui_6dof():
             )
         )
 
-        return fig, quat_fig, omega_fig, anim_fig, cache
+        fig_torque = torque_plot(t_sim, telemetry_log, k)
+
+        return fig, quat_fig, omega_fig, anim_fig, fig_torque, cache
 
     @callback(
         Output("anim", "disabled"),
@@ -352,17 +408,15 @@ def run_gui_6dof():
         State("anim", "disabled"),
     )
     def step(n, slider_val, k, paused):
+        ctx = callback_context.triggered_id
+        if ctx == "slider" and slider_val is not None:
+            return int(round(slider_val))
         if k is None:
             k = 0
-
-        ctx = callback_context.triggered_id
-
-        if ctx == "slider" and slider_val is not None:
-            return slider_val
         if not paused:
-            return k + 1
+            return min(k + 1, 199)
         return k
-    
+
     @callback(
         Output("slider", "value"),
         Input("index", "data"),
@@ -371,5 +425,5 @@ def run_gui_6dof():
         if k is None:
             return 0
         return k
-
+        
     app.run(debug=True)

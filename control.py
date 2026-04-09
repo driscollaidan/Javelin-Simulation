@@ -12,7 +12,7 @@ from attitude import quaternion_conjugate, quaternion_multiply
 #
 # ========================================================================================== #
 
-def pd_control(w, q, q_desired, Kp, Kd):
+def pd_control(w, q, q_desired):
 
     """
     - [e] : vector part of quaternion error:
@@ -21,6 +21,10 @@ def pd_control(w, q, q_desired, Kp, Kd):
     - [𝜔] : angular velocity
     - [L] : applied torque
     """
+
+    # Tunable controller logic
+    Kp = 2.0 # Increase if sluggish
+    Kd = 2.0 # Increase if oscillating
 
     # Quaternion error
     q_error = quaternion_multiply(quaternion_conjugate(q), q_desired)
