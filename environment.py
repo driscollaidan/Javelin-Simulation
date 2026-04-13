@@ -31,7 +31,7 @@ def get_environmental_effects(C, t, r, I, splines, surfaces):
         L_gg += calculate_gravity_gradient_torque(r_norm, r_hat_body, mu, I)
 
     # Magnetic torque.
-    m_body = np.array([0.05, 0.02, -0.03]) # Spacecraft magnetic moment in body frame, placeholder values
+    m_body = np.array([4.15, 3.1, -5.2]) # Spacecraft magnetic moment in body frame, A*m^2, magnitude ~7.35
     B = get_magnetic_field(t, r, splines) # Get appropriate magnetic field
     B_body = C @ B # Translate to body frame
     L_mag = calculate_magnetic_torque(m_body, B_body)
@@ -45,7 +45,7 @@ def calculate_gravity_gradient_torque(r_norm, r_hat, mu, I):
     """
     Computes the gravitational gradient torque on the spacecraft from a reference body.
     - Graivity gradient toruqe calculated in the body frame.
-    - Somewhat basic/simplified version of the equation, from NASA, more in depth in book.
+    - Simplified version of the equation, from NASA.
     """
     L_gg = ((3 * mu) / (r_norm ** 3)) * np.cross(r_hat, I @ r_hat)
 
@@ -77,7 +77,7 @@ def get_magnetic_field(t, r, splines):
 
     # Decide whether or not to include conditional logic based on radius of influence.\
     if safe_norm(r - splines["earth"](t)) < (2 * R_EARTH_SOI):
-        return calculate_magnetic_field(1000 * (r - splines["earth"](t)), 7.94e22, np.deg2rad(11))
+        return calculate_magnetic_field(1000 * (r - splines["earth"](t)), 7.96e22, np.deg2rad(11)) # A*m*2
     elif safe_norm(r - splines["jupiter"](t)) < (2 * R_JUPITER_SOI):
         return calculate_magnetic_field(1000 * (r - splines["jupiter"](t)), 1.5e27, np.deg2rad(10))
     else:
@@ -140,9 +140,9 @@ def calculate_solar_radiation_torque(C, r_sc, r_sun, surfaces):
 
     return L_srp
 
-EPS = 1e-6
+SAFE_VALUE = 1e-6
 def safe_norm(v):
     """
     Prevent explosion from norms.
     """
-    return max(np.linalg.norm(v), EPS)
+    return max(np.linalg.norm(v), SAFE_VALUE)

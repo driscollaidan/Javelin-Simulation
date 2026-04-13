@@ -33,7 +33,7 @@ def init_6dof():
 
     # Generates placeholder spacecraft geometry for 6DoF visualization.
     vertices_body, faces = create_spacecraft() 
-    I = np.diag([1, 2, 0.5]) 
+    I = np.diag([1870.31, 1870.31, 590.625]) * 1e-6
 
     # Initialize randomization
     seed()

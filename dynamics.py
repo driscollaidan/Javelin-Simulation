@@ -58,9 +58,9 @@ def simulate_6DoF(I, r0, v0, w0, q0, t0, bodies):
         y0=y0,
         t_eval=t_vec,
         args=(I, I_inverse, splines, surfaces),
-        method="DOP853",
-        rtol=1e-6,
-        atol=1e-9
+        method="RK45",
+        rtol=1e-12,
+        atol=1e-12
     )
 
     if not sol.success:
@@ -91,12 +91,6 @@ def spacecraft_dynamics(t, y, I, I_inverse, splines, surfaces):
     r: Inertial Frame.
     I: Body Frame.
     """
-
-    # TODO. Establish more data for telemetry !!!
-    #   - Return each environmental and internal torque
-    #   - Include gain and phase margins
-    #   - Display slew rates, poiniing accuracy, power usgage, and stability.
-    #   - Implement different modes as designed earlier.
 
     # Extract state
     r = y[0:3]

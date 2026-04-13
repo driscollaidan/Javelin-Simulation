@@ -14,3 +14,10 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# TODO. Establish more data for telemetry !!!
+#   - Return each environmental and internal torque
+#   - Include gain and phase margins
+#   - Display slew rates, poiniing accuracy, power usgage, and stability.
+# TODO. Imrpove geometry for surfaces and model.
+# TODO. Implement mission modes, defining pointing requirements and variable conditions for each
