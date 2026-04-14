@@ -1,8 +1,8 @@
 import numpy as np
 from orbitals import get_body_grav_parameter
 
-R_EARTH_SOI = 1.5e6
-R_JUPITER_SOI = 48.2e6
+R_EARTH_SOI = 1.5e9
+R_JUPITER_SOI = 48.2e9
 
 # TODO: Lots of simplifications/assumptions in the torque calculations. Can expand upon them.
 
@@ -77,9 +77,9 @@ def get_magnetic_field(t, r, splines):
 
     # Decide whether or not to include conditional logic based on radius of influence.\
     if safe_norm(r - splines["earth"](t)) < (2 * R_EARTH_SOI):
-        return calculate_magnetic_field(1000 * (r - splines["earth"](t)), 7.96e22, np.deg2rad(11)) # A*m*2
+        return calculate_magnetic_field((r - splines["earth"](t)), 7.96e22, np.deg2rad(11)) # A*m*2
     elif safe_norm(r - splines["jupiter"](t)) < (2 * R_JUPITER_SOI):
-        return calculate_magnetic_field(1000 * (r - splines["jupiter"](t)), 1.5e27, np.deg2rad(10))
+        return calculate_magnetic_field((r - splines["jupiter"](t)), 1.5e27, np.deg2rad(10))
     else:
         return 5e-9 * np.array([1, 0, 0]) # Typical interplanetary field from document, investigate Parker spiral
 
@@ -104,7 +104,7 @@ def calculate_solar_radiation_torque(C, r_sc, r_sun, surfaces):
     """
     Calculates torque due to radiation pressure.
     """
-    r_dist = 1000 * (r_sc - r_sun) # spacecraft to sun vector
+    r_dist = (r_sc - r_sun) # spacecraft to sun vector
     s_hat = r_dist / safe_norm(r_dist)
     s_hat_body = C @ s_hat
 
