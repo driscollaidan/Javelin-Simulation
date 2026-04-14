@@ -25,7 +25,12 @@ def get_body_position(et, body):
                 "NONE",
                 "SUN" # Reference frame
             )
-    
+
+    # Convert from km → m and km/s → m/s
+    state = np.array(state)
+    state[:3] *= 1000.0   # position
+    state[3:] *= 1000.0   # velocity
+
     return state # first three elements are position, last three are velocity, in km and km/s respectively
 
 def load_spacecraft_3dof(data):
@@ -45,9 +50,6 @@ def load_spacecraft_3dof(data):
 
         if time and position and velocity:
             time = process_time(time) # convert to numerical
-            for i in range(3): # convert to km and km/s
-                position[i] /= 1000
-                velocity[i] /= 1000
             times.append(time)
             positions.append(position)
             velocities.append(velocity)
@@ -106,4 +108,4 @@ def get_body_grav_parameter(body):
     Obtains gravitational parameter 'mu' from kernel data.
     """
     dim, (gm,) = spice.bodvrd(body, 'GM', 1)
-    return gm
+    return gm * 1e9

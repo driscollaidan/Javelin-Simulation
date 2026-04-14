@@ -23,8 +23,8 @@ def pd_control(w, q, q_desired):
     """
 
     # Tunable controller logic
-    Kp = 2.0 # Increase if sluggish
-    Kd = 2.0 # Increase if oscillating
+    Kp = 10.0 # Increase if sluggish
+    Kd = 5.0 # Increase if oscillating
 
     # Quaternion error
     q_error = quaternion_multiply(quaternion_conjugate(q), q_desired)

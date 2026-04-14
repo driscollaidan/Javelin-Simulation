@@ -59,8 +59,8 @@ def simulate_6DoF(I, r0, v0, w0, q0, t0, bodies):
         t_eval=t_vec,
         args=(I, I_inverse, splines, surfaces),
         method="DOP853",
-        rtol=1e-6,
-        atol=1e-9
+        rtol=1e-12,
+        atol=1e-12
     )
 
     if not sol.success:

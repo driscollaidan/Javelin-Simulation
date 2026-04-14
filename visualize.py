@@ -32,10 +32,10 @@ def build_6dof_frame(r_sc, q_sc, vertices_body, faces, r_planets, bodies):
     - TODO: Look into excluding bodies that will make dimensions too large.
     """
 
-    r_sc_scaled = (r_sc / POSITION_SCALE)
+    r_sc_scaled = (1e-3 * r_sc / POSITION_SCALE)
 
     r_planets_scaled = {
-        body: (r_planets[body] / POSITION_SCALE)
+        body: (1e-3 * r_planets[body] / POSITION_SCALE)
         for body in r_planets
     }
 
@@ -122,6 +122,7 @@ def get_spacecraft_6dof_frame(r, q, vertices_body, faces):
         flatshading=True,
         showscale=False,
         name="Spacecraft",
+        legendgroup="spacecraft",
         showlegend=True
     )
 

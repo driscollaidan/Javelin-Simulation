@@ -33,7 +33,11 @@ def init_6dof():
 
     # Generates placeholder spacecraft geometry for 6DoF visualization.
     vertices_body, faces = create_spacecraft() 
-    I = np.diag([1, 2, 0.5]) 
+
+    # inertia calculated with m=2100kg, r=0.75m, h=3m
+    I = np.diag([1870.31, 1870.31, 590.625]) * 10e-3 # fixing to make work
+
+    # I = np.diag([1, 2, 0.5]) 
 
     # Initialize randomization
     seed()
@@ -272,13 +276,13 @@ def run_gui_6dof():
 
         # Creating telemetry for 6DoF solar system display.
         telemetry_6dof = []
-        telemetry_6dof.append(f"Spacecraft Position (wrt Sun): [{r_sc[0]:,.2f}, {r_sc[1]:,.2f}, {r_sc[2]:,.2f}] km       ")
-        telemetry_6dof.append(f"Spacecraft Velocity (wrt Sun): [{v[:,k][0]:.2f}, {v[:,k][1]:.2f}, {v[:,k][2]:.2f}] km/s")
+        telemetry_6dof.append(f"Spacecraft Position (wrt Sun): [{r_sc[0]/1000:,.2f}, {r_sc[1]/1000:,.2f}, {r_sc[2]/1000:,.2f}] km       ")
+        telemetry_6dof.append(f"Spacecraft Velocity (wrt Sun): [{v[:,k][0]/1000:.2f}, {v[:,k][1]/1000:.2f}, {v[:,k][2]/1000:.2f}] km/s")
 
         if selected_bodies:
             telemetry_6dof.append("")
             for body in selected_bodies:
-                telemetry_6dof.append(f"Distance to {body.capitalize()}: {distances[body]:,.2f} km")
+                telemetry_6dof.append(f"Distance to {body.capitalize()}: {distances[body]/1000:,.2f} km")
         telemetry_6dof = "<br>".join(telemetry_6dof)
 
         annotations_6dof = [dict(
